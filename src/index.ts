@@ -4,7 +4,7 @@ import { MemoryAgent } from './MemoryAgent';
 import { Invoice, ReferenceData, HumanCorrectionLog } from './types';
 
 async function main() {
-  console.log("=== FlowBit AI Memory Agent Demo ===\n");
+  console.log("=== FlowBit AI Memory Agent Demo (SQLite) ===\n");
 
   // Load Data
   const invoices: Invoice[] = JSON.parse(fs.readFileSync('data/invoices.json', 'utf-8'));
@@ -13,19 +13,17 @@ async function main() {
 
   // Init System
   const memoryStore = new MemoryStore();
-  memoryStore.reset(); // Start fresh for demo
+  await memoryStore.reset(); // Start fresh for demo
   const agent = new MemoryAgent(memoryStore);
 
   const processedInvoices: Invoice[] = [];
 
   for (const invoice of invoices) {
-    console.log(`\n--------------------------------------------------
-`);
-    console.log(`Processing Invoice: ${invoice.invoiceId} (${invoice.vendor})
-`);
+    console.log(`\n--------------------------------------------------`);
+    console.log(`Processing Invoice: ${invoice.invoiceId} (${invoice.vendor})`);
     
     // 1. Run Agent
-    const result = agent.process(invoice, referenceData, processedInvoices);
+    const result = await agent.process(invoice, referenceData, processedInvoices);
 
     // Output Result
     console.log(`Confidence: ${result.confidenceScore.toFixed(2)}`);
@@ -44,12 +42,9 @@ async function main() {
     const humanInput = corrections.find(c => c.invoiceId === invoice.invoiceId);
     
     if (humanInput) {
-      console.log(`\n[Human Action] Corrections received for ${invoice.invoiceId}. Learning...
-`);
-      agent.learn(invoice, humanInput);
-      // In a real system, we'd update the invoice with accepted corrections before saving to history.
-      // Here, for history, we'll assume the human corrections are the truth.
-      // We manually patch the invoice for 'processedInvoices' list
+      console.log(`\n[Human Action] Corrections received for ${invoice.invoiceId}. Learning...`);
+      await agent.learn(invoice, humanInput);
+      
       const correctedInvoice = JSON.parse(JSON.stringify(invoice));
       humanInput.corrections.forEach(c => {
         // Simple patch for top-level fields
@@ -59,16 +54,23 @@ async function main() {
       });
       processedInvoices.push(correctedInvoice);
     } else {
-       // If no correction, assume system output (or original if no corrections proposed) was accepted?
-       // For this demo, let's assume the normalized result is accepted if confidence is high, or just push original.
        processedInvoices.push(invoice);
     }
   }
 
   console.log("\n\n=== Final Memory State ===");
-  // console.log(JSON.stringify(memoryStore['data'], null, 2)); 
-  // Accessing private property via any cast for demo dump
-  console.log(JSON.stringify((memoryStore as any).data, null, 2));
+  
+  // Dump tables manually for demo
+  // We can't access .db directly as it is private, but we can use getVendorMemory for known vendors
+  const vendors = [...new Set(invoices.map(i => i.vendor))];
+  const finalState: any = {};
+  for (const v of vendors) {
+      finalState[v] = await memoryStore.getVendorMemory(v);
+  }
+  
+  console.log(JSON.stringify(finalState, null, 2));
+
+  memoryStore.close();
 }
 
 main().catch(err => console.error(err));

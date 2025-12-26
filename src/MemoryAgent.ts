@@ -3,11 +3,9 @@ import {
   InvoiceFields, 
   ProcessResult, 
   ReferenceData, 
-  MemoryStoreData, 
   Correction, 
   HumanCorrectionLog, 
   ExtractionPattern,
-  ValueCorrection,
   LineItem
 } from './types';
 import { MemoryStore } from './MemoryStore';
@@ -19,7 +17,7 @@ export class MemoryAgent {
     this.memoryStore = memoryStore;
   }
 
-  process(invoice: Invoice, referenceData: ReferenceData, pastInvoices: Invoice[] = []): ProcessResult {
+  async process(invoice: Invoice, referenceData: ReferenceData, pastInvoices: Invoice[] = []): Promise<ProcessResult> {
     const auditTrail: any[] = [];
     const normalizedInvoice = JSON.parse(JSON.stringify(invoice.fields)); // Deep copy
     const proposedCorrections: Correction[] = [];
@@ -28,7 +26,7 @@ export class MemoryAgent {
     let reasoning = "";
 
     const vendor = invoice.vendor;
-    const memory = this.memoryStore.getVendorMemory(vendor);
+    const memory = await this.memoryStore.getVendorMemory(vendor);
 
     auditTrail.push({ step: 'recall', timestamp: new Date().toISOString(), details: `Loaded memory for ${vendor}` });
 
@@ -118,7 +116,7 @@ export class MemoryAgent {
       }
     }
 
-    // 3. LOGIC & HEURISTICS (Apply)
+    // 3. LOGIC & HEURISTICS (Apply) 
     
     // 3a. PO Matching
     // If PO is present (extracted or recovered), validate it.
@@ -217,7 +215,7 @@ export class MemoryAgent {
     };
   }
 
-  learn(invoice: Invoice, humanLog: HumanCorrectionLog) {
+  async learn(invoice: Invoice, humanLog: HumanCorrectionLog) {
     // invoice: The ORIGINAL invoice (before system corrections, or we check against system logic?)
     // Usually we learn from (Original Input) -> (Human Final Truth).
     // The human corrections apply to the original fields.
@@ -229,10 +227,12 @@ export class MemoryAgent {
 
     const vendor = invoice.vendor;
     
-    humanLog.corrections.forEach(c => {
+    // Iterate sequentially to support await
+    for (const c of humanLog.corrections) {
         // 1. Text Extraction Learning
         // If the "to" value can be found in the raw text, learn the pattern.
         const minLength = c.field === 'currency' ? 3 : 4;
+        
         if (typeof c.to === 'string' && c.to.length >= minLength) { // Min length to avoid noise
              let searchValues = [c.to];
              
@@ -247,7 +247,7 @@ export class MemoryAgent {
              for (const val of searchValues) {
                  if (foundMatch) break;
                  
-                 const escapedValue = val.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                 const escapedValue = this.escapeRegExp(val);
                  const index = invoice.rawText.indexOf(val);
                  
                  if (index !== -1) {
@@ -263,11 +263,8 @@ export class MemoryAgent {
                      
                      if (labelMatch) {
                          const label = labelMatch[1]; 
-                         // Create Regex
-                         // We found '01.01.2024'. We want to capture (\d{2}\.\d{2}\.\d{4})
                          let valuePattern = escapedValue.replace(/\d/g, '\\d'); // generic
                          
-                         // More specific date patterns
                          if (/\d{2}\.\d{2}\.\d{4}/.test(val)) {
                              valuePattern = '(\\d{2}\\.\\d{2}\\.\\d{4})';
                          } else if (/\d{2}\/\d{2}\/\d{4}/.test(val)) {
@@ -276,7 +273,7 @@ export class MemoryAgent {
                              valuePattern = `(${valuePattern})`;
                          }
 
-                         const regex = `${label}:?\\s*${valuePattern}`; 
+                         const regex = `${label}:?\\s*${valuePattern}`;
 
                          const pattern: ExtractionPattern = {
                              field: c.field,
@@ -286,7 +283,7 @@ export class MemoryAgent {
                              lastUsed: new Date().toISOString()
                          };
                          
-                         this.memoryStore.addPattern(vendor, pattern);
+                         await this.memoryStore.addPattern(vendor, pattern);
                      }
                  }
              }
@@ -296,7 +293,7 @@ export class MemoryAgent {
                  // Create a pattern: word1.*word2.*word3
                  const words = c.to.split(/\s+/).filter((w: string) => w.length > 1); // Filter tiny words
                  if (words.length > 2) {
-                     const flexiblePattern = words.map((w: string) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*');
+                     const flexiblePattern = words.map((w: string) => this.escapeRegExp(w)).join('.*');
                      const match = invoice.rawText.match(new RegExp(flexiblePattern, 'i'));
                      
                      if (match) {
@@ -313,7 +310,7 @@ export class MemoryAgent {
                              usageCount: 1,
                              lastUsed: new Date().toISOString()
                          };
-                         this.memoryStore.addPattern(vendor, pattern);
+                         await this.memoryStore.addPattern(vendor, pattern);
                      }
                  }
              }
@@ -331,7 +328,7 @@ export class MemoryAgent {
                 const desc = invoice.fields.lineItems[idx]?.description;
                 if (desc) {
                     // Learn: Description -> SKU
-                    this.memoryStore.addStaticCorrection(vendor, {
+                    await this.memoryStore.addStaticCorrection(vendor, {
                         field: 'lineItems.sku', // Generic field
                         triggerValue: desc,     // Specific trigger
                         correctedValue: c.to,
@@ -352,10 +349,14 @@ export class MemoryAgent {
                  // For now, let's treat it as a Pattern if found in text, or static if not found but corrected.
              }
         }
-    });
+    }
   }
 
   // --- Helpers ---
+  
+  private escapeRegExp(string: string): string { 
+    return string.replace(/[.*+?^${}()|[\\]/g, '\\$&'); 
+  }
 
   private getFieldValue(fields: any, path: string): any {
     if (path.includes('[')) return null; // Logic for arrays handled separately or simplified
@@ -377,22 +378,6 @@ export class MemoryAgent {
     }
   }
 
-  private findMatchingPO(invoice: InvoiceFields, refData: ReferenceData): any {
-    // Simple logic: Find PO from same vendor, approx date (within 30 days before), matching items (SKU or Price)
-    const invDate = this.parseDate(invoice.invoiceDate);
-    if (!invDate) return null;
-
-    // Filter POs by vendor
-    const vendorPOs = refData.purchaseOrders.filter(po => po.vendor === invoice.invoiceNumber /* Wait, invoice.vendor is not in invoiceFields passed here? Ah, I passed NormalizedInvoice which is InvoiceFields. I need vendor name. */ );
-    // Fix: process method passes 'invoice.vendor' logic. But 'invoiceFields' doesn't have 'vendor'. 
-    // I need to access vendor. The `normalizedInvoice` is just fields.
-    
-    // Quick Fix: iterate ALL POs and check vendor name? 
-    // I should pass vendor to this function.
-    
-    return null; // Placeholder to avoid breaking. Implemented properly below by passing context.
-  }
-  
   // Re-implementing findMatchingPO correctly with context
   public findMatchingPOWithVendor(invoice: InvoiceFields, vendor: string, refData: ReferenceData): any {
       const invDate = this.parseDate(invoice.invoiceDate);
