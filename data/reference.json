@@ -1,0 +1,84 @@
+{
+  "purchaseOrders": [
+    {
+      "poNumber": "PO-A-050",
+      "vendor": "Supplier GmbH",
+      "date": "2024-01-05",
+      "lineItems": [{ "sku": "WIDGET-001", "qty": 100, "unitPrice": 25.0 }]
+    },
+    {
+      "poNumber": "PO-A-051",
+      "vendor": "Supplier GmbH",
+      "date": "2024-01-18",
+      "lineItems": [{ "sku": "WIDGET-002", "qty": 20, "unitPrice": 25.0 }]
+    },
+    {
+      "poNumber": "PO-B-110",
+      "vendor": "Parts AG",
+      "date": "2024-02-01",
+      "lineItems": [{ "sku": "BOLT-99", "qty": 200, "unitPrice": 10.0 }]
+    },
+    {
+      "poNumber": "PO-B-111",
+      "vendor": "Parts AG",
+      "date": "2024-03-01",
+      "lineItems": [{ "sku": "NUT-10", "qty": 500, "unitPrice": 2.0 }]
+    },
+    {
+      "poNumber": "PO-C-900",
+      "vendor": "Freight & Co",
+      "date": "2024-03-01",
+      "lineItems": [{ "sku": "FREIGHT", "qty": 1, "unitPrice": 1000.0 }]
+    },
+    {
+      "poNumber": "PO-C-901",
+      "vendor": "Freight & Co",
+      "date": "2024-03-15",
+      "lineItems": [{ "sku": "FREIGHT", "qty": 1, "unitPrice": 1000.0 }]
+    }
+  ],
+  "deliveryNotes": [
+    {
+      "dnNumber": "DN-A-123",
+      "vendor": "Supplier GmbH",
+      "poNumber": "PO-A-050",
+      "date": "2024-01-10",
+      "lineItems": [{ "sku": "WIDGET-001", "qtyDelivered": 95 }]
+    },
+    {
+      "dnNumber": "DN-A-124",
+      "vendor": "Supplier GmbH",
+      "poNumber": "PO-A-051",
+      "date": "2024-01-22",
+      "lineItems": [{ "sku": "WIDGET-002", "qtyDelivered": 20 }]
+    },
+    {
+      "dnNumber": "DN-B-205",
+      "vendor": "Parts AG",
+      "poNumber": "PO-B-110",
+      "date": "2024-02-03",
+      "lineItems": [{ "sku": "BOLT-99", "qtyDelivered": 200 }]
+    },
+    {
+      "dnNumber": "DN-B-206",
+      "vendor": "Parts AG",
+      "poNumber": "PO-B-111",
+      "date": "2024-03-02",
+      "lineItems": [{ "sku": "NUT-10", "qtyDelivered": 500 }]
+    },
+    {
+      "dnNumber": "DN-C-301",
+      "vendor": "Freight & Co",
+      "poNumber": "PO-C-900",
+      "date": "2024-03-02",
+      "lineItems": [{ "sku": "FREIGHT", "qtyDelivered": 1 }]
+    },
+    {
+      "dnNumber": "DN-C-302",
+      "vendor": "Freight & Co",
+      "poNumber": "PO-C-901",
+      "date": "2024-03-18",
+      "lineItems": [{ "sku": "FREIGHT", "qtyDelivered": 1 }]
+    }
+  ]
+}
