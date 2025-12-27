@@ -4,7 +4,7 @@ import { MemoryAgent } from './MemoryAgent';
 import { Invoice, ReferenceData, HumanCorrectionLog } from './types';
 
 async function main() {
-  console.log("=== FlowBit AI Memory Agent Demo (SQLite) ===\n");
+  console.log("=== Memory Agent Demo  ===\n");
 
   // Load Data
   const invoices: Invoice[] = JSON.parse(fs.readFileSync('data/invoices.json', 'utf-8'));
