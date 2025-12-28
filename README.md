@@ -1,6 +1,6 @@
-# FlowBitAI - Intelligent Invoice Memory Agent
+# Intelligent Invoice Memory Agent
 
-FlowBitAI is a prototype for an adaptive invoice processing system. It uses an agentic approach to "learn" from human corrections, progressively building a memory of vendor-specific patterns and rules to improve automation rates over time.
+This is a prototype for an adaptive invoice processing system. It uses an agentic approach to "learn" from human corrections, progressively building a memory of vendor-specific patterns and rules to improve automation rates over time.
 
 ## 🧠 Core Concept
 
